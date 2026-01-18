@@ -19,7 +19,7 @@ jobs:
           git fetch --all --quiet
 
           # Create local tracking branches for all remotes (CI safety)
-          for r in $(git branch -r | grep -v '->'); do
+          for r in $(git branch -r | grep -v -- '->'); do
             git branch --track "${r#origin/}" "$r" 2>/dev/null || true
           done
 
