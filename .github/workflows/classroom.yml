@@ -1,0 +1,62 @@
+name: Level 2 Autograding
+
+on: [push]
+
+jobs:
+  grade:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0   # IMPORTANT: full history + branches
+
+      - name: Validate Level 2
+        run: |
+          set -e
+
+          echo "🔄 Fetching all branches..."
+          git fetch --all --quiet
+
+          # Create local tracking branches for all remotes (CI safety)
+          for r in $(git branch -r | grep -v '->'); do
+            git branch --track "${r#origin/}" "$r" 2>/dev/null || true
+          done
+
+          echo "🔍 Detecting branches..."
+          BRANCHES=$(git branch --format='%(refname:short)' | tr '[:upper:]' '[:lower:]')
+
+          LEFT_BRANCH=$(echo "$BRANCHES" | grep 'left' | head -n 1 || true)
+          RIGHT_BRANCH=$(echo "$BRANCHES" | grep 'right' | head -n 1 || true)
+
+          [ -z "$LEFT_BRANCH" ] && { echo "❌ No branch containing 'left' found"; exit 1; }
+          [ -z "$RIGHT_BRANCH" ] && { echo "❌ No branch containing 'right' found"; exit 1; }
+
+          echo "✅ Found branches:"
+          echo "   Left  → $LEFT_BRANCH"
+          echo "   Right → $RIGHT_BRANCH"
+
+          echo "🔍 Checking main branch..."
+          git checkout main >/dev/null 2>&1 || git checkout master >/dev/null 2>&1
+
+          if [ -f flag.txt ]; then
+            echo "❌ flag.txt must NOT exist in main"
+            exit 1
+          fi
+
+          COUNT=0
+
+          echo "🔍 Checking left branch for flag.txt..."
+          git checkout "$LEFT_BRANCH" >/dev/null 2>&1
+          [ -f flag.txt ] && COUNT=$((COUNT + 1))
+
+          echo "🔍 Checking right branch for flag.txt..."
+          git checkout "$RIGHT_BRANCH" >/dev/null 2>&1
+          [ -f flag.txt ] && COUNT=$((COUNT + 1))
+
+          if [ "$COUNT" -ne 1 ]; then
+            echo "❌ flag.txt must exist in exactly ONE branch (found in $COUNT)"
+            exit 1
+          fi
+
+          echo "✅ LEVEL 2 PASSED"
